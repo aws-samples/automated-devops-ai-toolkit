@@ -62,7 +62,7 @@ streamlit==1.37.1
 tenacity==8.5.0
 toml==0.10.2
 toolz==0.12.1
-tornado==6.4.1
+tornado==6.4.2
 types-requests==2.32.0.20240712
 typing-inspect==0.9.0
 typing_extensions==4.12.2
