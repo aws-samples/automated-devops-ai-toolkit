@@ -25,6 +25,17 @@ This AI-powered assistant streamlines development and deployment workflows by le
   - `pages/`: Streamlit pages for different functionalities
   - `streamlit_sample.py`: Main Streamlit application entry point
 
+## Authors and acknowledgment
+We would like to thank the following contributors for their valuable input and work on this project (sorted alphabetically):
+
+• Aditya Ambati 
+• Anand Krishna Varanasi 
+• JAGDISH KOMAKULA 
+• Sarat Chandra Pothula 
+• T.V.R.L.Phani Kumar Dadi 
+• Varun Sharma
+
+
 ## Usage Instructions
 
 ### Installation
@@ -120,18 +131,6 @@ Key components in the data flow:
 - AWS services: Interact with ECR, ECS, and other AWS resources as needed
 
 Note: Ensure proper error handling and input validation throughout the data flow to maintain robustness and security.
-
-## Authors and acknowledgment
-We would like to thank the following contributors for their valuable input and work on this project:
-
-- [Anand Krishna Varanasi]
-- [Aditya Ambati]
-- [JAGDISH KOMAKULA]
-- [T.V.R.L.Phani Kumar Dadi]
-- [Sarat Chandra Pothula]
-- [Varun Sharma]
-
-Special thanks to [Varun Sharma] for his invaluable mentorship and providing expert advice and direction throughout the project.
 
 ## License
 MIT-0
