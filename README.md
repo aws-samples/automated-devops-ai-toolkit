@@ -29,10 +29,15 @@ This AI-powered assistant streamlines development and deployment workflows by le
 We would like to thank the following contributors for their valuable input and work on this project (sorted alphabetically):
 
 • Aditya Ambati 
+
 • Anand Krishna Varanasi 
+
 • JAGDISH KOMAKULA 
+
 • Sarat Chandra Pothula 
+
 • T.V.R.L.Phani Kumar Dadi 
+
 • Varun Sharma
 
 
