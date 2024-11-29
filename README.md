@@ -6,8 +6,9 @@ This AI-powered assistant streamlines development and deployment workflows by le
 
 **Note:** 
 
-1. This release is `MVP1`. MVP2 will have more utilities included like GitHub Actions, Gitlab CI, Test cases.
-2. The tool is built on Python version 3.12.3
+1. This release is `MVP1`.
+2. `MVP2` will have more utilities included like GitHub Actions, Gitlab CI, Test cases.
+3. The tool is built on Python version 3.12.3
 
 ## Repository Structure
 
