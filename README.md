@@ -27,7 +27,7 @@ This AI-powered assistant streamlines development and deployment workflows by le
   - `streamlit_sample.py`: Main Streamlit application entry point
 
 ## Authors and acknowledgment
-We would like to thank the following contributors for their valuable input and work on this project (sorted alphabetically):
+We would like to thank the following contributors for their valuable input and work on this project _(sorted alphabetically)_:
 
 • Aditya Ambati 
 
