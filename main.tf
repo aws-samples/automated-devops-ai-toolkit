@@ -69,16 +69,16 @@ resource "aws_instance" "this" {
               #!/bin/bash
               sudo su
               cd /opt/
-              python3 -m ensurepip --upgrade
-              yum install git -y
+              yum install python3.12.x86_64 git -y
+              python3.12 -m ensurepip --upgrade
               git clone https://github.com/aws-samples/automated-devops-ai-toolkit.git
               cd automated-devops-ai-toolkit
-              python3 -m venv .venv
+              python3.12 -m venv .venv
               source .venv/bin/activate
               mkdir -p /opt/cache
               export PIP_CACHE_DIR=/opt/cache
               pip3 install -r requirements.txt
-              streamlit run app.py 
+              streamlit run app.py
               EOF
   user_data_replace_on_change = true
   tags = {
