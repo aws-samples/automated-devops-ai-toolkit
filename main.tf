@@ -69,15 +69,18 @@ resource "aws_instance" "this" {
               #!/bin/bash
               sudo su
               cd /opt/
-              yum install python3.12.x86_64 git -y
+              yum install docker python3.12.x86_64 git -y
               python3.12 -m ensurepip --upgrade
-              git clone https://github.com/aws-samples/automated-devops-ai-toolkit.git
+              git clone https://github.com/aws-samples/automated-devops-ai-toolkit.git -b feature/app-iac
               cd automated-devops-ai-toolkit
               python3.12 -m venv .venv
               source .venv/bin/activate
               mkdir -p /opt/cache
               export PIP_CACHE_DIR=/opt/cache
               pip3 install -r requirements.txt
+              systemctl start docker
+              systemctl enable docker
+              export AWS_REGION="us-east-1"
               streamlit run app.py
               EOF
   user_data_replace_on_change = true

@@ -4,6 +4,7 @@ from typing import Dict
 from langchain_aws import ChatBedrock
 from core.custom_logging import logger
 from botocore.config import Config
+import os
 
 def get_model(
     service_name: str = "bedrock-runtime",
@@ -14,7 +15,7 @@ def get_model(
         "top_p": 1,  
         "stop_sequences": ["Human"],
     },
-    region_name: str = "us-west-2",
+    region_name: str = os.getenv("AWS_REGION","us-west-2"),
     model_id: str = "anthropic.claude-3-5-sonnet-20241022-v2:0"
 ) -> ChatBedrock:
     """
