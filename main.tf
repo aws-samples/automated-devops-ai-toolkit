@@ -51,7 +51,7 @@ resource "aws_security_group" "ec2" {
 
 # EC2 Instance
 resource "aws_instance" "this" {
-  depends_on                  = [aws_iam_role_policy_attachment.ssm_policy]
+  depends_on                  = [aws_iam_role_policy_attachment.ssm_policy, aws_iam_role_policy_attachment.bedrock_policy]
   ami                         = var.ami_id
   instance_type               = var.instance_type
   subnet_id                   = var.ec2_subnet_id
@@ -69,14 +69,14 @@ resource "aws_instance" "this" {
               #!/bin/bash
               sudo su
               cd /opt/
-              yum install docker python3.12.x86_64 git -y
+              sudo yum-config-manager --add-repo https://rpm.releases.hashicorp.com/AmazonLinux/hashicorp.repo
+              yum install yum-utils docker python3.12.x86_64 git terraform -y
               python3.12 -m ensurepip --upgrade
               git clone https://github.com/aws-samples/automated-devops-ai-toolkit.git -b feature/app-iac
               cd automated-devops-ai-toolkit
               python3.12 -m venv .venv
               source .venv/bin/activate
               mkdir -p /opt/cache
-              export PIP_CACHE_DIR=/opt/cache
               pip3 install -r requirements.txt
               systemctl start docker
               systemctl enable docker

@@ -15,8 +15,8 @@ def get_model(
         "top_p": 1,  
         "stop_sequences": ["Human"],
     },
-    region_name: str = os.getenv("AWS_REGION","us-west-2"),
-    model_id: str = "anthropic.claude-3-5-sonnet-20241022-v2:0"
+    region_name: str = os.getenv("AWS_REGION","us-east-1"),
+    model_id: str = "anthropic.claude-3-sonnet-20240229-v1:0"
 ) -> ChatBedrock:
     """
     Creates a ChatBedrock instance with the specified parameters.
