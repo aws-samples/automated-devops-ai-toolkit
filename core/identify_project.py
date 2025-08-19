@@ -97,26 +97,39 @@ def identify_project_details(git_url: str, directory: str, token: Optional[str] 
 
     # Define the prompt template
     project_identification_prompt_template = """
-    You are an expert in evaluating the list of file paths provided and respond with an appropriate information about programming language, dependencies object path used in the project. Do recursive and deep dive search for pom.xml or go.mod and note down the path:
-    {files}
+    You are an expert in evaluating file paths. Analyze the files and return ONLY valid JSON with no additional text.
 
-    Please provide the response in straight forward way without any detailed explanation. For example: if the files contain pom.xml response should be as follows. Also the dependency object value should contain the relative path to the dependency object from the location of project execution.
-    
-    {{
-        "project_type":"Java",
-        "dependency_object" : "pom.xml",
-    }}
-    
+    Files: {files}
+
+    Return only this JSON format:
+    {{"project_type":"<language>","dependency_object":"<path>"}}
     """
 
     # Create the prompt template object 
     file_evaluation_prompt = ChatPromptTemplate.from_template(project_identification_prompt_template)
-    llm_chain = file_evaluation_prompt | get_model() | JsonOutputParser()
+    llm_chain = file_evaluation_prompt | get_model()
     file_list_str = "\n".join(files)
     logger.debug(file_list_str)
-    response = llm_chain.invoke(file_list_str)
-    response['files_list'] = file_list_str
-    logger.info(response)
-    logger.debug(response.get("project_type"))
-    logger.debug(response.get("dependency_object"))
-    return response
+    
+    try:
+        raw_response = llm_chain.invoke({"files": file_list_str})
+        # Extract JSON from response if wrapped in text
+        import json
+        import re
+        
+        response_text = raw_response.content if hasattr(raw_response, 'content') else str(raw_response)
+        json_match = re.search(r'\{[^}]*\}', response_text)
+        
+        if json_match:
+            response = json.loads(json_match.group())
+        else:
+            raise ValueError("No JSON found in response")
+            
+        response['files_list'] = file_list_str
+        logger.info(response)
+        logger.debug(response.get("project_type"))
+        logger.debug(response.get("dependency_object"))
+        return response
+    except Exception as e:
+        logger.error(f"JSON parsing failed: {e}")
+        return None

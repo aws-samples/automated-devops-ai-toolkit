@@ -15,7 +15,7 @@ def get_model(
         "stop_sequences": ["Human"],
     },
     region_name: str = "us-west-2",
-    model_id: str = "anthropic.claude-3-5-sonnet-20241022-v2:0"
+    model_id: str = "anthropic.claude-v2"
 ) -> ChatBedrock:
     """
     Creates a ChatBedrock instance with the specified parameters.

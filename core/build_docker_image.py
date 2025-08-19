@@ -1,33 +1,31 @@
 import logging
-import docker
-from docker.errors import BuildError, APIError
+import subprocess
+import os
 from pathlib import Path
 from core.custom_logging import logger
 from generators.docker.generate_docker_file import fix_docker_build_issue
 
 logger = logging.getLogger(__name__)
-# Define a set of allowed image names and tags
-ALLOWED_IMAGES = {
-    "image1": ["latest", "v1", "v2"],
-    "image2": ["latest", "stable"],
-    # Add more allowed images and tags as needed
-}
 
-def run_container(client, image_tag):
+def run_container(image_tag):
     """
-    Run a container with the given image tag and return the container object.
+    Run a container with the given image tag using Finch.
     """
-    return client.containers.run(
-        image_tag,
-        detach=True,
-        security_opt=["no-new-privileges"],
-        cap_drop=["ALL"],
-        read_only=True
-    )
+    try:
+        result = subprocess.run([
+            "finch", "run", "-d",
+            "--security-opt", "no-new-privileges",
+            "--cap-drop", "ALL",
+            "--read-only",
+            image_tag
+        ], capture_output=True, text=True, check=True)
+        return result.stdout.strip()
+    except subprocess.CalledProcessError as e:
+        raise Exception(f"Failed to run container: {e.stderr}")
 
-def build_docker_image(dockerfile_path: str, image_name: str, tag: str,fix_count: int=0):
+def build_docker_image(dockerfile_path: str, image_name: str, tag: str, fix_count: int=0):
     """
-    Builds a Docker image from the Dockerfile in the specified project directory.
+    Builds a Docker image using Finch from the Dockerfile in the specified project directory.
 
     Args:
         dockerfile_path (str): The path to the Dockerfile
@@ -39,49 +37,42 @@ def build_docker_image(dockerfile_path: str, image_name: str, tag: str,fix_count
         None
     """
     try:
-         # Validate image name and tag
-     #   if image_name not in ALLOWED_IMAGES or tag not in ALLOWED_IMAGES[image_name]:
-     #       raise ValueError(f"Invalid image name or tag: {image_name}:{tag}")
-        fix_count+=1
-        logger.info(f"Before docker build env '{image_name}:{tag}'...")
-        client = docker.from_env()
-        dockerfile_content=""
-        logger.info(f"Building Docker image '{image_name}:{tag}'...")
+        fix_count += 1
+        logger.info(f"Building Docker image '{image_name}:{tag}' using Finch...")
+        
+        dockerfile_content = ""
         with open(dockerfile_path, "r", encoding="utf-8") as f:
             dockerfile_content = f.read()
-        updated_tag=f"{image_name}:{tag}"
-        # Build the Docker image
-        client.images.build(
-            path=str(Path(dockerfile_path).parent),
-            dockerfile=str('Dockerfile'),
-            tag=updated_tag,
-            buildargs={
-                "provenance" : "false"
-            },
-            rm=True
-        )
-        logger.info(f"Docker image '{image_name}:{tag}' built successfully.")
+        
+        updated_tag = f"{image_name}:{tag}"
+        build_path = str(Path(dockerfile_path).parent)
+        
+        # Build the Docker image using Finch
+        result = subprocess.run([
+            "finch", "build",
+            "-t", updated_tag,
+            "-f", dockerfile_path,
+            build_path
+        ], capture_output=True, text=True, check=True)
+        
+        logger.info(f"Docker image '{image_name}:{tag}' built successfully with Finch.")
         logger.info(f"Running docker image '{image_name}:{tag}'.")
-        # Use the separate function to run the container
-        container_object = run_container(client, updated_tag)
-        logger.info(f"Container '{container_object.id}' created from the image.")
-        logger.info(f"Stopping Container '{container_object.id}'.")
-        container_object.stop()
-        logger.info(f"Removing Container '{container_object.id}'.")
-        container_object.remove()
-    except docker.errors.BuildError as e:
-        logger.info(f"Error building Docker image: {e}")
+        
+        # Run the container
+        container_id = run_container(updated_tag)
+        logger.info(f"Container '{container_id}' created from the image.")
+        
+        # Stop and remove container
+        subprocess.run(["finch", "stop", container_id], check=True)
+        subprocess.run(["finch", "rm", container_id], check=True)
+        logger.info(f"Container '{container_id}' stopped and removed.")
+        
+    except subprocess.CalledProcessError as e:
+        logger.info(f"Error building Docker image with Finch: {e.stderr}")
         if fix_count > 10:
-            logger.info("Fixing the Dockerfile build issue failed after multiple attempts. Please check the Dockerfile and try again.")
+            logger.info("Fixing the Dockerfile build issue failed after multiple attempts.")
             return
-        fix_docker_build_issue(e,dockerfile_content,dockerfile_path)
-        build_docker_image(dockerfile_path, image_name, tag,fix_count)
-    except docker.errors.APIError as e:
-        logger.info(f"Unexpected error: {e}")
-        if fix_count > 10:
-            logger.info("Fixing the Dockerfile build issue failed after multiple attempts. Please check the Dockerfile and try again.")
-            return
-        fix_docker_build_issue(e,dockerfile_content,dockerfile_path)
-        build_docker_image(dockerfile_path, image_name, tag,fix_count)
+        fix_docker_build_issue(str(e.stderr), dockerfile_content, dockerfile_path)
+        build_docker_image(dockerfile_path, image_name, tag, fix_count)
     except Exception as e:
         logger.info(f"An unexpected error occurred: {e}")
