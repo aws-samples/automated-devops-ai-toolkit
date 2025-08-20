@@ -2,7 +2,7 @@
 
 ## Introduction
 
-The DevOps AI Assistant is a comprehensive tool that automates various aspects of DevOps processes, from generating Dockerfiles to creating infrastructure as code for both ECS and EKS using Terraform and CloudFormation.
+The DevOps AI Assistant is a comprehensive tool that automates various aspects of DevOps processes, from generating Dockerfiles (using Finch) to creating infrastructure as code for both ECS and EKS using Terraform and CloudFormation.
 
 This AI-powered assistant streamlines development and deployment workflows by leveraging advanced code generation techniques. It supports multiple container orchestration platforms and aims to minimize manual coding, reduce errors, and enhance the overall efficiency of DevOps practices.
 
@@ -46,7 +46,7 @@ Before using the DevOps AI Assistant, ensure you have:
 
 ### Required Software:
 - **Python 3.7+**: Runtime environment
-- **Docker**: Container building and testing
+- **Finch**: Container building and testing
 - **AWS CLI**: AWS service interactions
 - **Git**: Repository cloning (optional)
 
@@ -306,17 +306,10 @@ Steps:
    - Input: ECR repository name and URI
    - Output: BuildSpec YAML file for AWS CodeBuild
 
-### Testing & Quality
-
-- Run unit tests:
-  ```
-  python -m unittest discover tests
-  ```
-
 ### Troubleshooting
 
 - If you encounter issues with AWS services, ensure your AWS CLI is properly configured and you have the necessary permissions.
-- For Docker-related issues, make sure Docker is running and you have the required permissions to build and run containers.
+- For Docker-related issues, make sure Docker/Finch is running and you have the required permissions to build and run containers.
 - Check the application logs for detailed error messages and stack traces.
 
 ## Data Flow
@@ -347,7 +340,7 @@ Key components in the data flow:
 - **Bedrock AI model**: Handles code generation based on prompts and templates
 - **Dockerfile Validator**: Ensures generated Dockerfiles are valid and properly formatted
 - **Streamlit UI**: Manages user interactions and displays results
-- **Docker**: Builds and tests generated Dockerfiles
+- **Finch**: Builds and tests generated Dockerfiles
 - **AWS services**: Interact with ECR, ECS, EKS, and other AWS resources as needed
 
 ## Disclaimer
