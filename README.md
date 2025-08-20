@@ -114,10 +114,10 @@ streamlit run app.py
 1. **Dockerfile Generation Test**:
    ```bash
    # Use sample repository
-   Repository URL: https://github.com/spring-projects/spring-petclinic
+   Repository URL: https://github.com/<sample-app-code-repository>
    ```
-   - Expected: Generated Dockerfile for Java Spring application
-   - Verify: Dockerfile contains appropriate Java base image and build steps
+   - Expected: Generated Dockerfile for Java Spring application or Golang Applicaion etc
+   - Verify: Dockerfile contains appropriate Java or Golang base image and build steps for example
 
 2. **ECS Terraform Test**:
    - Input: Generated Dockerfile from step 1
