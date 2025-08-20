@@ -1,5 +1,6 @@
 import os
 import git
+import re
 from typing import List, Optional
 from langchain.prompts import PromptTemplate, ChatPromptTemplate
 from core.bedrock_definition import get_model
@@ -7,6 +8,15 @@ from langchain_core.output_parsers import JsonOutputParser
 from core.custom_logging import logger
 
 SAFE_CLONE_ROOT = "./safe_temp_repos"
+
+def _sanitize_path_component(path_component: str) -> str:
+    """Sanitize path component to prevent attacks while preserving functionality."""
+    if '..' in path_component or path_component.startswith('/') or '\\' in path_component:
+        raise ValueError(f"Invalid path component: {path_component}")
+    if not re.match(r'^[a-zA-Z0-9._-]+$', path_component):
+        raise ValueError(f"Path component contains invalid characters: {path_component}")
+    return path_component
+
 def clone_repo(git_url: str, directory: str, token: Optional[str] = None) -> str:
     """
     Clones a Git repository to the specified directory.
@@ -33,7 +43,10 @@ def clone_repo(git_url: str, directory: str, token: Optional[str] = None) -> str
         else:
             raise ValueError(f"Unsupported Git URL format: {git_url}")
     
-    repo_path = os.path.join(user_dir_abs, os.path.basename(git_url).replace('.git', ''))
+    # Sanitize repository name from URL
+    repo_name = os.path.basename(git_url).replace('.git', '')
+    repo_name = _sanitize_path_component(repo_name)
+    repo_path = os.path.join(user_dir_abs, repo_name)
     
     try:
         if os.path.exists(repo_path):
@@ -68,17 +81,30 @@ def list_files(directory: str) -> List[str]:
     safe_root_abs = os.path.abspath(SAFE_CLONE_ROOT)
     dir_abs = os.path.abspath(directory)
     if not dir_abs.startswith(safe_root_abs):
-        logger.info(f"Attempted access to directory outside safe root: {directory}")
+        logger.warning(f"Attempted access to directory outside safe root: {directory}")
         raise PermissionError(f"Access to directory '{directory}' is not allowed.")
 
     file_list = []
 
     try:
-        for root, dirs, files in os.walk(directory):
+        for root, dirs, files in os.walk(dir_abs):
+            # Validate each root path during traversal
+            root_abs = os.path.abspath(root)
+            if not root_abs.startswith(safe_root_abs):
+                logger.warning(f"Skipping invalid path during traversal: {root}")
+                continue
+                
             for file in files:
-                file_path = os.path.join(root, file)
-                if os.path.isfile(file_path):
-                    file_list.append(file_path)
+                try:
+                    # Sanitize filename for security
+                    _sanitize_path_component(file)
+                    file_path = os.path.join(root, file)
+                    if os.path.isfile(file_path):
+                        file_list.append(file_path)
+                except ValueError:
+                    logger.warning(f"Skipping file with invalid name: {file}")
+                    continue
+                    
     except FileNotFoundError:
         logger.info(f"The directory '{directory}' does not exist.")
     except NotADirectoryError:
