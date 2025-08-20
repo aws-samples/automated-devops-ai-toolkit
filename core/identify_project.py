@@ -48,19 +48,24 @@ def clone_repo(git_url: str, directory: str, token: Optional[str] = None) -> str
     repo_name = _sanitize_path_component(repo_name)
     repo_path = os.path.join(user_dir_abs, repo_name)
     
+    # Final validation of constructed repository path
+    repo_path_abs = os.path.abspath(repo_path)
+    if not repo_path_abs.startswith(safe_root_abs):
+        raise ValueError(f"Invalid repository path: {repo_path}")
+    
     try:
-        if os.path.exists(repo_path):
-            logger.info(f"Repository already exists at '{repo_path}'. Pulling latest changes.")
-            repo = git.Repo(repo_path)
+        if os.path.exists(repo_path_abs):
+            logger.info(f"Repository already exists at '{repo_path_abs}'. Pulling latest changes.")
+            repo = git.Repo(repo_path_abs)
             repo.git.pull()
         else:
-            logger.info(f"Cloning repository '{git_url}' to '{repo_path}'")
-            git.Repo.clone_from(git_url, repo_path)
+            logger.info(f"Cloning repository '{git_url}' to '{repo_path_abs}'")
+            git.Repo.clone_from(git_url, repo_path_abs)
     except Exception as e:
         logger.info(f"Failed to clone repository: {e}")
         raise Exception(f"Repository cloning failed: {e}") from e
     
-    return repo_path
+    return repo_path_abs
 
 def list_files(directory: str) -> List[str]:
     """
