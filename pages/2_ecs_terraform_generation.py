@@ -1,14 +1,15 @@
 import streamlit as st
 import time
 from core.custom_logging import logger
+from core.dockerfile_validator import get_validated_dockerfile_path
 from generators.terraform.generate_ecs_terraform_code import get_fixed_terraform_code
 
 st.set_page_config(page_title="Terraform Code Generation", layout="wide")
 st.header("Terraform Code Generation")
 
-# Ensure the Dockerfile path is available in session state
-if 'docker_file_path' not in st.session_state or st.session_state.docker_file_path is None:
-    st.error("Please generate the Dockerfile and build the Docker image first on the Dockerfile Generation page.")
+# Validate Dockerfile path
+dockerfile_path = get_validated_dockerfile_path()
+if dockerfile_path is None:
     st.stop()
 
 # Initialize session state variables
@@ -60,4 +61,4 @@ else:
             status_output.error("Please provide User Input for Terraform Generation.")
         else:
             st.session_state.terraform_in_progress = True
-            generate_terraform_code_for_ecs(st.session_state.docker_file_path, user_input)
+            generate_terraform_code_for_ecs(dockerfile_path, user_input)

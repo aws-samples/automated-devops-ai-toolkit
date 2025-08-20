@@ -45,14 +45,24 @@ def generate_dockerfile_and_image(git_url, git_token, clone_directory, status_ou
         progress_bar.progress(progress_percentage)
 
         docker_file_path = f"{Path(project_dependency_object).parent}/Dockerfile"
-        st.session_state.docker_file_path = docker_file_path
+        
+        # Debug: Show the intended path
+        st.info(f"Dockerfile will be created at: {docker_file_path}")
 
         with st.spinner("Checking or generating Dockerfile..."):
             if not os.path.isfile(docker_file_path):
-                generate_docker_file(project_type, project_dependency_object, project_files_list)
-                st.success("Dockerfile generated.")
+                generated_path = generate_docker_file(project_type, project_dependency_object, project_files_list)
+                if generated_path and os.path.isfile(generated_path):
+                    st.session_state.docker_file_path = generated_path
+                    st.success(f"Dockerfile generated at: {generated_path}")
+                else:
+                    raise Exception("Failed to generate Dockerfile")
             else:
-                st.success("Dockerfile already exists.")
+                st.session_state.docker_file_path = docker_file_path
+                st.success(f"Dockerfile already exists at: {docker_file_path}")
+        
+        # Debug: Confirm session state storage
+        st.info(f"Dockerfile path stored in session: {st.session_state.docker_file_path}")
 
         progress_percentage += 40
         st.session_state.dockerfile_progress = progress_percentage

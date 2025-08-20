@@ -10,8 +10,17 @@ from typing import Tuple
 fix_dockerfile_build_issue_prompt = """
     You are an expert in fixing issues in Dockerfile that raise during docker build. I am getting the following error {docker_build_error} when building docker image with the following Dockerfile content 
     {dockerfile_content}
-    Can you please update the content with appropriate fix and provide me correct dockerfile without any explanation. For example, the output should be straight forward as follows
-    "FROM python:latest\n\n# Creating Application Source Code Directory\nRUN mkdir -p /usr/src/app"
+    
+    CRITICAL RULES:
+    1. Return ONLY valid Dockerfile instructions
+    2. Do NOT include any markdown formatting (```, ```dockerfile)
+    3. Do NOT include any explanatory text or comments about the fix
+    4. Do NOT include >>> or any other formatting artifacts
+    5. Do NOT include quotes around the entire response
+    6. Start directly with FROM instruction
+    7. Each line must be a valid Dockerfile instruction
+    
+    Fix the error and return only the corrected Dockerfile content.
 """
 
 get_info_for_docker_file_prompt = """
@@ -54,6 +63,9 @@ docker_file_generation_prompt_template = """
         16. Make sure to use the latest version of the base latest debian image
         17. Don't use dependency:go-offline mode in dockerfile and take dependencies from the dependency object content provided in the prompt
         18. In CMD or entry point specify the entry point paths correct instead of using wildcards by evaluating the dependency objects configuration.
+        19. For Java projects, always use JDK base images (like openjdk:11-jdk-slim) not JRE images, as compilation requires JDK
+        20. For Java projects, use multi-stage builds: build stage with JDK for compilation, runtime stage with JRE for execution
+        21. For Java projects, copy the specific JAR file name from target directory, not wildcards like target/*.jar
         
         Also make sure that output should be simple and crystal without any detailed explanation about the instructions in the response. 
          
@@ -97,10 +109,43 @@ def fix_docker_build_issue(docker_build_error: str, dockerfile_content: str, doc
         prompt = PromptTemplate(template=fix_dockerfile_build_issue_prompt, input_variables=["docker_build_error", "dockerfile_content"])
         llm_chain = prompt | get_model() | {"str": StrOutputParser()}
         response = llm_chain.invoke({"docker_build_error": docker_build_error, "dockerfile_content": dockerfile_content})
-        logger.info(response["str"])
+        
+        # Aggressive cleaning of the response
+        cleaned_content = response["str"]
+        
+        # Remove markdown code blocks
+        if "```dockerfile" in cleaned_content:
+            cleaned_content = cleaned_content.split("```dockerfile")[1].split("```")[0].strip()
+        elif "```" in cleaned_content:
+            cleaned_content = cleaned_content.split("```")[1].split("```")[0].strip()
+        
+        # Remove quotes if the entire content is wrapped in quotes
+        if cleaned_content.startswith('"') and cleaned_content.endswith('"'):
+            cleaned_content = cleaned_content[1:-1]
+        
+        # Process line by line to remove artifacts
+        lines = cleaned_content.split('\n')
+        dockerfile_lines = []
+        found_from = False
+        
+        for line in lines:
+            # Remove all formatting artifacts
+            clean_line = line.replace('>>>', '').replace('<<<', '').strip()
+            
+            # Skip empty lines and explanatory text
+            if not clean_line or clean_line.lower().startswith('here is') or clean_line.lower().startswith('the fixed'):
+                continue
+                
+            if clean_line.startswith('FROM') or found_from:
+                found_from = True
+                dockerfile_lines.append(clean_line)
+        
+        cleaned_content = '\n'.join(dockerfile_lines)
+        
+        logger.info(cleaned_content)
         st.info("Updated Dockerfile content after fixing build issue:")
-        st.code(response["str"])
-        create_dockerfile(dockerfile_path, response["str"])
+        st.code(cleaned_content)
+        create_dockerfile(dockerfile_path, cleaned_content)
         return True
     except Exception as e:
         logger.error(f"An error occurred: {e}")
