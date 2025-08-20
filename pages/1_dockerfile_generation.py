@@ -26,8 +26,9 @@ if 'log_container' not in st.session_state:
 # Input for Git URL and optional Git token
 git_url = st.text_input("Git Repository URL", "")
 git_token = st.text_input("Git Token (for private repositories)", "", type="password")
-clone_directory = st.text_input("Clone Directory", "./temp_repo")
+clone_directory = st.text_input("Clone Directory (subfolder name only)", "temp_repo")
 
+st.info("For security, the clone directory must be a subfolder name only. All repositories will be cloned under a safe root directory.")
 # Function to generate Dockerfile and image
 def generate_dockerfile_and_image(git_url, git_token, clone_directory, status_output, progress_bar):
     try:

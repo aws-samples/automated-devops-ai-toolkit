@@ -6,6 +6,7 @@ from core.bedrock_definition import get_model
 from langchain_core.output_parsers import JsonOutputParser
 from core.custom_logging import logger
 
+SAFE_CLONE_ROOT = "./safe_temp_repos"
 def clone_repo(git_url: str, directory: str, token: Optional[str] = None) -> str:
     """
     Clones a Git repository to the specified directory.
@@ -18,6 +19,12 @@ def clone_repo(git_url: str, directory: str, token: Optional[str] = None) -> str
     Returns:
         str: The path to the cloned repository.
     """
+    # Validate and normalize the directory path
+    safe_root_abs = os.path.abspath(SAFE_CLONE_ROOT)
+    user_dir_abs = os.path.abspath(os.path.join(safe_root_abs, directory))
+    if not user_dir_abs.startswith(safe_root_abs):
+        raise ValueError(f"Invalid clone directory: {directory}")
+
     if token:
         if "https://" in git_url:
             git_url = git_url.replace("https://", f"https://{token}@")
@@ -26,7 +33,7 @@ def clone_repo(git_url: str, directory: str, token: Optional[str] = None) -> str
         else:
             raise ValueError(f"Unsupported Git URL format: {git_url}")
     
-    repo_path = os.path.join(directory, os.path.basename(git_url).replace('.git', ''))
+    repo_path = os.path.join(user_dir_abs, os.path.basename(git_url).replace('.git', ''))
     
     try:
         if os.path.exists(repo_path):
@@ -57,6 +64,13 @@ def list_files(directory: str) -> List[str]:
         NotADirectoryError: If the specified path is not a directory.
         PermissionError: If the user does not have permission to access the directory.
     """
+    # Validate and normalize the directory path
+    safe_root_abs = os.path.abspath(SAFE_CLONE_ROOT)
+    dir_abs = os.path.abspath(directory)
+    if not dir_abs.startswith(safe_root_abs):
+        logger.info(f"Attempted access to directory outside safe root: {directory}")
+        raise PermissionError(f"Access to directory '{directory}' is not allowed.")
+
     file_list = []
 
     try:
