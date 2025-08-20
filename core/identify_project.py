@@ -97,12 +97,20 @@ def identify_project_details(git_url: str, directory: str, token: Optional[str] 
 
     # Define the prompt template
     project_identification_prompt_template = """
-    You are an expert in evaluating file paths. Analyze the files and return ONLY valid JSON with no additional text.
+    You are an expert in evaluating file paths to identify project types. Analyze the files and return ONLY valid JSON with no additional text.
 
     Files: {files}
 
+    Identification rules:
+    - If pom.xml exists: project_type="java", dependency_object=path to pom.xml
+    - If build.gradle exists: project_type="java", dependency_object=path to build.gradle  
+    - If requirements.txt exists: project_type="python", dependency_object=path to requirements.txt
+    - If package.json exists: project_type="node", dependency_object=path to package.json
+    - If go.mod exists: project_type="go", dependency_object=path to go.mod
+    - If Cargo.toml exists: project_type="rust", dependency_object=path to Cargo.toml
+
     Return only this JSON format:
-    {{"project_type":"<language>","dependency_object":"<path>"}}
+    {{"project_type":"<language>","dependency_object":"<full_path_to_dependency_file>"}}
     """
 
     # Create the prompt template object 

@@ -35,11 +35,40 @@ task_definition_template = '''
     Generate a task definition JSON based on the Dockerfile content provided.
     Dockerfile content: {dockerfile_content}
 
-    The task definition JSON should include:
-    - Family name
-    - Container definitions with name, image, CPU, memory, port mappings, environment variables, command, working directory, and log configuration.
-
-    Make sure to correctly pick up the image, port number, and other details from the Dockerfile to create an accurate task definition file.
+    CRITICAL: Extract these exact values from the Dockerfile:
+    1. FROM instruction → container image (e.g., "python:3.9", "node:16", "nginx:alpine")
+    2. EXPOSE instruction → containerPort (e.g., 3000, 5000, 8080)
+    3. Application name → derive from image or working directory
+    
+    Output MUST be valid JSON with extracted values:
+    {{
+      "family": "extracted-app-name",
+      "containerDefinitions": [
+        {{
+          "name": "extracted-app-name",
+          "image": "extracted-image-from-dockerfile",
+          "cpu": 256,
+          "memory": 512,
+          "essential": true,
+          "portMappings": [
+            {{
+              "containerPort": extracted-port-from-dockerfile,
+              "protocol": "tcp"
+            }}
+          ],
+          "logConfiguration": {{
+            "logDriver": "awslogs",
+            "options": {{
+              "awslogs-group": "/ecs/extracted-app-name",
+              "awslogs-region": "us-east-1",
+              "awslogs-stream-prefix": "ecs"
+            }}
+          }}
+        }}
+      ]
+    }}
+    
+    Replace "extracted-*" with actual values from the Dockerfile. DO NOT use "nginx", "app", or port 80 unless they are actually in the Dockerfile.
 '''
 
 cloudformation_generation_fargate_template = '''
@@ -47,25 +76,87 @@ cloudformation_generation_fargate_template = '''
     ECS cluster details: {ecs_cluster_details}
     Task Definition JSON: {task_definition_json}
 
-    Generate a CloudFormation template for the ECS Fargate and its dependent resources. Ensure the template follows best practices and includes necessary comments for clarity.
+    Generate a CloudFormation template for the ECS Fargate and its dependent resources. 
 
-    Note:
-    1. Do not use any hardcoded resource IDs in the code.
-    2. Avoid using data sources unless you need to fetch region, availability zones, and current user details.
-    3. Always generate end-to-end code using CloudFormation.
-    4. Use task definition content to create ECS task definition resource.
-    5. Avoid cyclic dependencies in the code. Specifically, ensure that:
-       a. Security groups for the ALB and ECS tasks are defined separately and do not reference each other.
-       b. Use the `DependsOn` attribute appropriately to handle dependencies between resources without creating cycles.
-       c. Avoid Conditions if not required.
-    6. Include all necessary networking components such as custom VPC, subnets, IGW, and security groups.
-    7. Ensure to create IAM roles required for the ECS tasks and task execution, including policies for necessary permissions.
-    8. Create an Application Load Balancer (ALB) to distribute traffic to the ECS tasks. Configure necessary listeners, target groups, and security groups for the ALB.
-    9. User should be able to run the code without being prompted for any additional inputs.
-    10. Do not refer to undeclared variables or resources in the code.
-    11. Create a standard end-to-end template for one environment and not for multiple environments like staging, dev, pre-prod, etc.
-    12. Use security best practices to build policies, roles using least privilege.
+    CRITICAL REQUIREMENTS - MUST FOLLOW EXACTLY:
+    1. Parse the Task Definition JSON to extract the actual container image, port, and name
+    2. DO NOT create a Parameters section with defaults
+    3. DO NOT use !Ref for ContainerImage, ContainerName, or ContainerPort
+    4. Use the extracted values DIRECTLY in the Resources section
+    5. EXAMPLES of extraction (use actual values from YOUR task definition JSON):
+       - If YOUR JSON has "image": "node:16" → write Image: node:16 directly
+       - If YOUR JSON has "containerPort": 3000 → write ContainerPort: 3000 directly
+       - If YOUR JSON has "name": "web-app" → write Name: web-app directly
 
+    FORBIDDEN - DO NOT INCLUDE:
+    - Parameters section
+    - !Ref ContainerImage, !Ref ContainerName, !Ref ContainerPort
+    - Default values like nginx, app, or port 80
+
+    REQUIRED COMPLETE TEMPLATE - MANDATORY ECS RESOURCES:
+    Generate a COMPLETE CloudFormation template with essential ECS resources.
+    
+    MANDATORY RESOURCES (required for working ECS Fargate):
+    - VPC with public subnets and internet gateway
+    - ECS Cluster 
+    - Task Definition with extracted container values, ExecutionRole, TaskRole
+    - ECS Service with NetworkConfiguration
+    - Security Groups for ECS tasks
+    - IAM roles for task execution (AmazonECSTaskExecutionRolePolicy)
+    - CloudWatch Logs Group
+    
+    OPTIONAL RESOURCES (create only if user specifically requests load balancing):
+    - Application Load Balancer and Target Group (only if user mentions ALB/load balancer)
+    - ALB Security Groups (only if ALB is created)
+    - LoadBalancer configuration in ECS Service (only if ALB is created)
+    
+    If no load balancer is mentioned, create ECS Service without LoadBalancers configuration.
+    Extract container values from Task Definition JSON and use directly in template.
+    The output should be in YAML format and enclosed in triple backticks with the 'yaml' marker.
+'''
+
+cloudformation_generation_ec2_template = '''
+    Based on all the details provided:
+    ECS cluster details: {ecs_cluster_details}
+    Task Definition JSON: {task_definition_json}
+
+    Generate a CloudFormation template for ECS with EC2 Auto Scaling and its dependent resources.
+
+    CRITICAL REQUIREMENTS - MUST FOLLOW EXACTLY:
+    1. Parse the Task Definition JSON to extract the actual container image, port, and name
+    2. DO NOT create a Parameters section with defaults
+    3. DO NOT use !Ref for ContainerImage, ContainerName, or ContainerPort
+    4. Use the extracted values DIRECTLY in the Resources section
+    5. EXAMPLES of extraction (use actual values from YOUR task definition JSON):
+       - If YOUR JSON has "image": "node:16" → write Image: node:16 directly
+       - If YOUR JSON has "containerPort": 3000 → write ContainerPort: 3000 directly
+       - If YOUR JSON has "name": "web-app" → write Name: web-app directly
+
+    FORBIDDEN - DO NOT INCLUDE:
+    - Parameters section
+    - !Ref ContainerImage, !Ref ContainerName, !Ref ContainerPort
+    - Default values like nginx, app, or port 80
+
+    REQUIRED COMPLETE TEMPLATE - MANDATORY ECS RESOURCES:
+    Generate a COMPLETE CloudFormation template with essential ECS resources.
+    
+    MANDATORY RESOURCES (required for working ECS with EC2):
+    - VPC with public/private subnets and NAT gateway
+    - ECS Cluster
+    - Auto Scaling Group and Launch Template for EC2 instances
+    - Task Definition with extracted container values, ExecutionRole, TaskRole
+    - ECS Service
+    - Security Groups for ECS tasks
+    - IAM roles for task execution and EC2 instances
+    - CloudWatch Logs Group
+    
+    OPTIONAL RESOURCES (create only if user specifically requests load balancing):
+    - Application Load Balancer and Target Group (only if user mentions ALB/load balancer)
+    - ALB Security Groups (only if ALB is created)
+    - LoadBalancer configuration in ECS Service (only if ALB is created)
+    
+    If no load balancer is mentioned, create ECS Service without LoadBalancers configuration.
+    Extract container values from Task Definition JSON and use directly in template.
     The output should be in YAML format and enclosed in triple backticks with the 'yaml' marker.
 '''
 
@@ -74,6 +165,7 @@ supervisor_prompt = ChatPromptTemplate.from_template(supervisor_template)
 ecs_cluster_fargate_prompt = ChatPromptTemplate.from_template(ecs_cluster_fargate_template)
 task_definition_prompt = ChatPromptTemplate.from_template(task_definition_template)
 cloudformation_generation_fargate_prompt = ChatPromptTemplate.from_template(cloudformation_generation_fargate_template)
+cloudformation_generation_ec2_prompt = ChatPromptTemplate.from_template(cloudformation_generation_ec2_template)
 
 # Define chains for each process
 supervisor_chain = (
@@ -100,10 +192,27 @@ cloudformation_generation_fargate_chain = (
     .pick(["response"])
 )
 
+cloudformation_generation_ec2_chain = (
+    RunnableParallel({"task_definition_json": task_definition_chain, "ecs_cluster_details": RunnablePassthrough()})
+    .assign(response=cloudformation_generation_ec2_prompt | model | StrOutputParser())
+    .pick(["response"])
+)
+
 def read_dockerfile(file_path):
     try:
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"Dockerfile not found at {file_path}")
+        
         with open(file_path, 'r', encoding="utf-8") as file:
-            return file.read()
+            content = file.read().strip()
+            
+        if not content:
+            raise ValueError("Dockerfile is empty")
+            
+        if not content.upper().startswith('FROM'):
+            raise ValueError("Invalid Dockerfile: does not start with FROM instruction")
+            
+        return content
     except FileNotFoundError:
         st.error(f"Dockerfile not found at {file_path}")
         raise
@@ -167,6 +276,50 @@ def regenerate_cloudformation_template_if_error(template_body, stack_name):
         st.info("No changes made to the CloudFormation template")
         return template_body
 
+def extract_json_from_response(response):
+    """Extract JSON content from AI response"""
+    import re
+    import json
+    
+    # Try to find JSON in code blocks
+    json_match = re.search(r'```json\s*(.*?)\s*```', response, re.DOTALL)
+    if json_match:
+        try:
+            return json.loads(json_match.group(1).strip())
+        except json.JSONDecodeError:
+            pass
+    
+    # Try to find JSON without code blocks
+    json_match = re.search(r'\{.*\}', response, re.DOTALL)
+    if json_match:
+        try:
+            return json.loads(json_match.group(0))
+        except json.JSONDecodeError:
+            pass
+    
+    # If no valid JSON found, return the response as is
+    return response
+
+def extract_dockerfile_values(task_definition_json):
+    """Extract key values from task definition JSON"""
+    try:
+        if isinstance(task_definition_json, str):
+            task_def = extract_json_from_response(task_definition_json)
+        else:
+            task_def = task_definition_json
+            
+        if isinstance(task_def, dict) and 'containerDefinitions' in task_def:
+            container = task_def['containerDefinitions'][0]
+            return {
+                'image': container.get('image', 'my-app:latest'),
+                'port': container.get('portMappings', [{}])[0].get('containerPort', 8080),
+                'name': container.get('name', 'app')
+            }
+    except:
+        pass
+    
+    return {'image': 'my-app:latest', 'port': 8080, 'name': 'app'}
+
 def generate_cloudformation_template(initial_requirement, dockerfile_path):
     try:
         start_time = time.time()
@@ -188,13 +341,70 @@ def generate_cloudformation_template(initial_requirement, dockerfile_path):
             st.info(f"Dockerfile content read successfully")
 
             st.info("Generating task definition JSON...")
-            task_definition_json = task_definition_chain.invoke({"dockerfile_content": dockerfile_content})["response"]
+            task_definition_response = task_definition_chain.invoke({"dockerfile_content": dockerfile_content})["response"]
             st.info(f"Task definition JSON generated")
+            
+            # Extract values from task definition for CloudFormation
+            dockerfile_values = extract_dockerfile_values(task_definition_response)
+            st.info(f"Extracted values: {dockerfile_values}")
+            
+            # Enhanced task definition JSON with extracted values
+            enhanced_task_def = f"Task Definition with extracted values: Image={dockerfile_values['image']}, Port={dockerfile_values['port']}, Name={dockerfile_values['name']}. Original: {task_definition_response}"
 
             st.info("Generating CloudFormation template...")
             cloudformation_response = cloudformation_generation_fargate_chain.invoke({
                 "ecs_cluster_details": ecs_cluster_details,
-                "task_definition_json": task_definition_json
+                "task_definition_json": enhanced_task_def
+            })["response"]
+        elif "ec2" in classification_result.lower() or "autoscaling" in classification_result.lower():
+            st.info("Generating ECS EC2 autoscaling configuration...")
+            ecs_cluster_details = ecs_cluster_fargate_chain.invoke({"initial_requirement": initial_requirement})["response"]
+            st.info(f"ECS EC2 configuration generated: {ecs_cluster_details}")
+
+            st.info("Reading Dockerfile content...")
+            dockerfile_content = read_dockerfile(dockerfile_path)
+            st.info(f"Dockerfile content read successfully")
+
+            st.info("Generating task definition JSON...")
+            task_definition_response = task_definition_chain.invoke({"dockerfile_content": dockerfile_content})["response"]
+            st.info(f"Task definition JSON generated")
+            
+            # Extract values from task definition for CloudFormation
+            dockerfile_values = extract_dockerfile_values(task_definition_response)
+            st.info(f"Extracted values: {dockerfile_values}")
+            
+            # Enhanced task definition JSON with extracted values
+            enhanced_task_def = f"Task Definition with extracted values: Image={dockerfile_values['image']}, Port={dockerfile_values['port']}, Name={dockerfile_values['name']}. Original: {task_definition_response}"
+
+            st.info("Generating CloudFormation template...")
+            cloudformation_response = cloudformation_generation_fargate_chain.invoke({
+                "ecs_cluster_details": ecs_cluster_details,
+                "task_definition_json": enhanced_task_def
+            })["response"]
+        elif "ec2" in classification_result.lower() or "autoscaling" in classification_result.lower():
+            st.info("Generating ECS EC2 autoscaling configuration...")
+            ecs_cluster_details = ecs_cluster_fargate_chain.invoke({"initial_requirement": initial_requirement})["response"]
+            st.info(f"ECS EC2 configuration generated: {ecs_cluster_details}")
+
+            st.info("Reading Dockerfile content...")
+            dockerfile_content = read_dockerfile(dockerfile_path)
+            st.info(f"Dockerfile content read successfully")
+
+            st.info("Generating task definition JSON...")
+            task_definition_response = task_definition_chain.invoke({"dockerfile_content": dockerfile_content})["response"]
+            st.info(f"Task definition JSON generated")
+            
+            # Extract values from task definition for CloudFormation
+            dockerfile_values = extract_dockerfile_values(task_definition_response)
+            st.info(f"Extracted values: {dockerfile_values}")
+            
+            # Enhanced task definition JSON with extracted values
+            enhanced_task_def = f"Task Definition with extracted values: Image={dockerfile_values['image']}, Port={dockerfile_values['port']}, Name={dockerfile_values['name']}. Original: {task_definition_response}"
+
+            st.info("Generating CloudFormation template...")
+            cloudformation_response = cloudformation_generation_ec2_chain.invoke({
+                "ecs_cluster_details": ecs_cluster_details,
+                "task_definition_json": enhanced_task_def
             })["response"]
         else:
             st.error(f"Unsupported deployment type: {classification_result}")

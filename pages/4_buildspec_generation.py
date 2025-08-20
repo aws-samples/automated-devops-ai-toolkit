@@ -1,14 +1,15 @@
 import streamlit as st
 import time
 from core.custom_logging import logger
+from core.dockerfile_validator import get_validated_dockerfile_path
 from generators.buildspec.generate_buildspec import generate_buildspec
 
 st.set_page_config(page_title="BuildSpec Generation", layout="wide")
 st.header("BuildSpec Generation")
 
-# Ensure the Dockerfile path is available in session state
-if 'docker_file_path' not in st.session_state or st.session_state.docker_file_path is None:
-    st.error("Please generate the Dockerfile and build the Docker image first on the Dockerfile Generation page.")
+# Validate Dockerfile path
+dockerfile_path = get_validated_dockerfile_path()
+if dockerfile_path is None:
     st.stop()
 
 # Initialize session state variables
@@ -68,4 +69,4 @@ else:
             status_output.error("Please provide ECR Repository Name and URI.")
         else:
             st.session_state.buildspec_in_progress = True
-            generate_buildspec_code(st.session_state.docker_file_path, ecr_repository_name, ecr_repository_uri)
+            generate_buildspec_code(dockerfile_path, ecr_repository_name, ecr_repository_uri)

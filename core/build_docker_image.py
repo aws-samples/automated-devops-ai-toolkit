@@ -68,11 +68,13 @@ def build_docker_image(dockerfile_path: str, image_name: str, tag: str, fix_coun
         logger.info(f"Container '{container_id}' stopped and removed.")
         
     except subprocess.CalledProcessError as e:
-        logger.info(f"Error building Docker image with Finch: {e.stderr}")
+        # Truncate error message to prevent Bedrock input length issues
+        error_msg = str(e.stderr)[:2000] + "..." if len(str(e.stderr)) > 2000 else str(e.stderr)
+        logger.info(f"Error building Docker image with Finch: {error_msg}")
         if fix_count > 10:
             logger.info("Fixing the Dockerfile build issue failed after multiple attempts.")
             return
-        fix_docker_build_issue(str(e.stderr), dockerfile_content, dockerfile_path)
+        fix_docker_build_issue(error_msg, dockerfile_content, dockerfile_path)
         build_docker_image(dockerfile_path, image_name, tag, fix_count)
     except Exception as e:
         logger.info(f"An unexpected error occurred: {e}")
