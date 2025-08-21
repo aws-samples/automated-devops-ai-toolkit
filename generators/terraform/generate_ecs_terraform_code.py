@@ -174,6 +174,13 @@ terraform_generation_fargate_template = '''
     }}
 
     The output should be in code format and enclosed in triple backticks with the 'hcl' marker.
+    
+    MANDATORY OUTPUT FORMAT:
+    ```hcl
+    [Your Terraform code here]
+    ```
+    
+    DO NOT return plain text without code block markers.
 '''
 
 terraform_generation_ec2_autoscaling_template = '''
@@ -251,6 +258,13 @@ terraform_generation_ec2_autoscaling_template = '''
     13. Use the provided container_definitions HCL directly without modification.
 
     The output should be in code format and enclosed in triple backticks with the 'hcl' marker.
+    
+    MANDATORY OUTPUT FORMAT:
+    ```hcl
+    [Your Terraform code here]
+    ```
+    
+    DO NOT return plain text without code block markers.
 '''
 
 # Create ChatPromptTemplate objects from templates
@@ -463,7 +477,12 @@ def extract_terraform_code_from_output(output):
         if terraform_code_blocks:
             return "\n\n".join(terraform_code_blocks).strip()
     
-    # If no code blocks found, return the output as-is (might be plain text)
+    # If no code blocks found, try to detect if it's raw Terraform code
+    if 'resource "' in output or 'data "' in output or 'provider "' in output:
+        logging.warning("No code block markers found, but detected Terraform syntax - using raw output")
+        return output.strip()
+    
+    # Last resort: return raw output with warning
     logging.warning("No code block markers found, returning raw output")
     return output.strip()
 
