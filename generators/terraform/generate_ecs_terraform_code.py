@@ -148,7 +148,9 @@ terraform_generation_fargate_template = '''
     14. CRITICAL: Use extracted container values directly in container_definitions, not as variables
     15. CRITICAL: In aws_ecs_task_definition resource, use: container_definitions = jsonencode([...])
     16. CRITICAL: DO NOT use: container_definitions = var.container_definitions
-    17. User should be able to run the code without being prompted for any additional inputs.
+    17. CRITICAL: DO NOT use heredoc syntax: container_definitions = <<DEFINITION
+    18. CRITICAL: DO NOT use templatefile() for container_definitions
+    19. User should be able to run the code without being prompted for any additional inputs.
     18. Do not refer to undeclared variables or resources in the code.
     19. Include data sources for availability zones: data "aws_availability_zones" "available" {{}}
     20. Use the provided container_definitions HCL directly without modification.
@@ -223,7 +225,9 @@ terraform_generation_ec2_autoscaling_template = '''
     15. CRITICAL: Use extracted container values directly in container_definitions, not as variables
     16. CRITICAL: In aws_ecs_task_definition resource, use: container_definitions = jsonencode([...])
     17. CRITICAL: DO NOT use: container_definitions = var.container_definitions
-    18. Do not refer to undeclared variables or resources in the code.
+    18. CRITICAL: DO NOT use heredoc syntax: container_definitions = <<DEFINITION
+    19. CRITICAL: DO NOT use templatefile() for container_definitions
+    20. Do not refer to undeclared variables or resources in the code.
     19. Include data sources for availability zones: data "aws_availability_zones" "available" {{}}
     20. Use the provided container_definitions HCL directly without modification.
 
