@@ -83,7 +83,10 @@ cloudformation_generation_fargate_template = '''
     2. DO NOT create a Parameters section with defaults
     3. DO NOT use !Ref for ContainerImage, ContainerName, or ContainerPort
     4. Use the extracted values DIRECTLY in the Resources section
-    5. EXAMPLES of extraction (use actual values from YOUR task definition JSON):
+    5. CRITICAL: Include AWS::ECS::TaskDefinition resource with ContainerDefinitions
+    6. CRITICAL: ECS Service MUST reference the TaskDefinition with TaskDefinition: !Ref
+    7. CRITICAL: Use dynamic availability zones with !GetAZs instead of hardcoded zones
+    8. EXAMPLES of extraction (use actual values from YOUR task definition JSON):
        - If YOUR JSON has "image": "node:16" → write Image: node:16 directly
        - If YOUR JSON has "containerPort": 3000 → write ContainerPort: 3000 directly
        - If YOUR JSON has "name": "web-app" → write Name: web-app directly
@@ -92,27 +95,59 @@ cloudformation_generation_fargate_template = '''
     - Parameters section
     - !Ref ContainerImage, !Ref ContainerName, !Ref ContainerPort
     - Default values like nginx, app, or port 80
+    - Hardcoded availability zones like us-east-1a
 
     REQUIRED COMPLETE TEMPLATE - MANDATORY ECS RESOURCES:
     Generate a COMPLETE CloudFormation template with essential ECS resources.
     
     MANDATORY RESOURCES (required for working ECS Fargate):
-    - VPC with public subnets and internet gateway
+    - AWSTemplateFormatVersion and Description
+    - VPC with public subnets using !GetAZs for availability zones
+    - Internet Gateway and Route Tables
     - ECS Cluster 
-    - Task Definition with extracted container values, ExecutionRole, TaskRole
-    - ECS Service with NetworkConfiguration
-    - Security Groups for ECS tasks
+    - AWS::ECS::TaskDefinition with ContainerDefinitions array
+    - ECS Service with TaskDefinition: !Ref and NetworkConfiguration
+    - Security Groups for ECS tasks (specific ports, not -1)
     - IAM roles for task execution (AmazonECSTaskExecutionRolePolicy)
     - CloudWatch Logs Group
+    - Outputs section with key resource references
     
     OPTIONAL RESOURCES (create only if user specifically requests load balancing):
     - Application Load Balancer and Target Group (only if user mentions ALB/load balancer)
     - ALB Security Groups (only if ALB is created)
     - LoadBalancer configuration in ECS Service (only if ALB is created)
     
+    TEMPLATE STRUCTURE EXAMPLE:
+    AWSTemplateFormatVersion: '2010-09-09'
+    Description: 'ECS Fargate application'
+    Resources:
+      VPC:
+        Type: AWS::EC2::VPC
+      PublicSubnet1:
+        AvailabilityZone: !Select [0, !GetAZs '']
+      ECSTaskDefinition:
+        Type: AWS::ECS::TaskDefinition
+        Properties:
+          ContainerDefinitions:
+            - Name: [extracted-name]
+              Image: [extracted-image]
+              PortMappings:
+                - ContainerPort: [extracted-port]
+      ECSService:
+        Type: AWS::ECS::Service
+        Properties:
+          TaskDefinition: !Ref ECSTaskDefinition
+    
     If no load balancer is mentioned, create ECS Service without LoadBalancers configuration.
     Extract container values from Task Definition JSON and use directly in template.
     The output should be in YAML format and enclosed in triple backticks with the 'yaml' marker.
+    
+    MANDATORY OUTPUT FORMAT:
+    ```yaml
+    [Your CloudFormation template here]
+    ```
+    
+    DO NOT return plain text without code block markers.
 '''
 
 cloudformation_generation_ec2_template = '''
@@ -127,7 +162,52 @@ cloudformation_generation_ec2_template = '''
     2. DO NOT create a Parameters section with defaults
     3. DO NOT use !Ref for ContainerImage, ContainerName, or ContainerPort
     4. Use the extracted values DIRECTLY in the Resources section
-    5. EXAMPLES of extraction (use actual values from YOUR task definition JSON):
+    5. CRITICAL: Include AWS::ECS::TaskDefinition resource with ContainerDefinitions
+    6. CRITICAL: ECS Service MUST reference the TaskDefinition with TaskDefinition: !Ref
+    7. CRITICAL: Use dynamic availability zones with !GetAZs instead of hardcoded zones
+    8. EXAMPLES of extraction (use actual values from YOUR task definition JSON):
+       - If YOUR JSON has "image": "node:16" → write Image: node:16 directly
+       - If YOUR JSON has "containerPort": 3000 → write ContainerPort: 3000 directly
+       - If YOUR JSON has "name": "web-app" → write Name: web-app directly
+
+    FORBIDDEN - DO NOT INCLUDE:
+    - Parameters section
+    - !Ref ContainerImage, !Ref ContainerName, !Ref ContainerPort
+    - Default values like nginx, app, or port 80
+    - Hardcoded availability zones like us-east-1a
+
+    REQUIRED COMPLETE TEMPLATE - MANDATORY ECS RESOURCES:
+    Generate a COMPLETE CloudFormation template with essential ECS resources.
+    
+    MANDATORY RESOURCES (required for working ECS with EC2):
+    - AWSTemplateFormatVersion and Description
+    - VPC with public/private subnets using !GetAZs for availability zones
+    - Internet Gateway, NAT Gateway, and Route Tables
+    - ECS Cluster with EC2 capacity provider
+    - AWS::ECS::TaskDefinition with ContainerDefinitions array
+    - ECS Service with TaskDefinition: !Ref
+    - Auto Scaling Group and Launch Template for EC2 instances
+    - Security Groups for ECS tasks and EC2 instances
+    - IAM roles for task execution and EC2 instances
+    - CloudWatch Logs Group
+    - Outputs section with key resource references
+    
+    OPTIONAL RESOURCES (create only if user specifically requests load balancing):
+    - Application Load Balancer and Target Group (only if user mentions ALB/load balancer)
+    - ALB Security Groups (only if ALB is created)
+    - LoadBalancer configuration in ECS Service (only if ALB is created)
+    
+    If no load balancer is mentioned, create ECS Service without LoadBalancers configuration.
+    Extract container values from Task Definition JSON and use directly in template.
+    The output should be in YAML format and enclosed in triple backticks with the 'yaml' marker.
+    
+    MANDATORY OUTPUT FORMAT:
+    ```yaml
+    [Your CloudFormation template here]
+    ```
+    
+    DO NOT return plain text without code block markers.
+'''
        - If YOUR JSON has "image": "node:16" → write Image: node:16 directly
        - If YOUR JSON has "containerPort": 3000 → write ContainerPort: 3000 directly
        - If YOUR JSON has "name": "web-app" → write Name: web-app directly
