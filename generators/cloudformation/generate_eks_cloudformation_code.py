@@ -49,28 +49,34 @@ kubernetes_manifest_template = '''
     Generate Kubernetes manifests based on the Dockerfile content provided.
     Dockerfile content: {dockerfile_content}
 
-    IMPORTANT: Extract the following information from the Dockerfile:
-    - Base image from FROM instruction (use this as the container image)
-    - Exposed ports from EXPOSE instruction (use for containerPort and service port)
-    - Working directory from WORKDIR instruction
-    - Environment variables from ENV instructions
-    - Resource requirements based on application type
+    CRITICAL REQUIREMENTS - MUST EXTRACT FROM DOCKERFILE:
+    1. MANDATORY: Extract base image from FROM instruction (e.g., FROM node:16 → use image: node:16)
+    2. MANDATORY: Extract port from EXPOSE instruction (e.g., EXPOSE 3000 → use containerPort: 3000)
+    3. MANDATORY: Extract app name from image or working directory
+    4. MANDATORY: Extract environment variables from ENV instructions
     
-    DO NOT use hardcoded values like "nginx", "my-app:latest", or port 80/8080.
-    Use the actual information from the Dockerfile provided.
+    FORBIDDEN - DO NOT USE THESE DEFAULT VALUES:
+    - nginx (extract actual image from Dockerfile)
+    - my-app:latest (extract actual image from Dockerfile)
+    - port 80/8080 (extract actual EXPOSE port from Dockerfile)
+    - generic names like "app" (extract meaningful name from Dockerfile)
 
-    EXAMPLES of extraction (use actual values from YOUR Dockerfile):
-    - If YOUR Dockerfile has FROM node:16 → use image: node:16
-    - If YOUR Dockerfile has EXPOSE 3000 → use containerPort: 3000
-    - If YOUR Dockerfile builds a web-app → use name: web-app
+    EXTRACTION EXAMPLES (follow this pattern exactly):
+    - Dockerfile: FROM python:3.9 → Kubernetes: image: python:3.9
+    - Dockerfile: EXPOSE 5000 → Kubernetes: containerPort: 5000
+    - Dockerfile: FROM node:16-alpine → Kubernetes: image: node:16-alpine
+    - Dockerfile: EXPOSE 3000 → Kubernetes: containerPort: 3000
 
-    Generate the following Kubernetes resources with extracted values:
-    - Deployment with container specifications (use extracted image and ports)
-    - Service to expose the application (use extracted ports)
-    - ConfigMap if needed for configuration (use extracted ENV variables)
-    - Ingress for external access (use extracted service port)
+    Generate Kubernetes resources with EXTRACTED values only:
+    - Deployment with container specifications (MUST use extracted image and ports)
+    - Service to expose the application (MUST use extracted ports)
+    - ConfigMap if needed (MUST use extracted ENV variables)
+    - Ingress for external access (MUST use extracted service port)
 
-    Extract and use the actual image name, ports, environment variables, and configuration from the provided Dockerfile content.
+    VALIDATION: Before generating, verify you have extracted:
+    ✓ Actual image name from FROM instruction
+    ✓ Actual port number from EXPOSE instruction
+    ✓ Actual environment variables from ENV instructions
 '''
 
 cloudformation_generation_fargate_template = '''
@@ -283,34 +289,68 @@ def extract_yaml_from_response(response):
     # If no YAML found, return the response as is
     return response.strip()
 
-def extract_kubernetes_values(kubernetes_manifests):
-    """Extract key values from Kubernetes manifests"""
+def extract_kubernetes_values(kubernetes_manifests, dockerfile_content=None):
+    """Extract key values from Kubernetes manifests with Dockerfile fallback"""
     try:
         if isinstance(kubernetes_manifests, str):
-            # Look for image and port in the manifest text
             import re
             
             # Extract image
             image_match = re.search(r'image:\s*([^\s\n]+)', kubernetes_manifests)
-            image = image_match.group(1) if image_match else 'my-app:latest'
+            image = image_match.group(1) if image_match else None
             
             # Extract port
             port_match = re.search(r'containerPort:\s*(\d+)', kubernetes_manifests)
-            port = int(port_match.group(1)) if port_match else 8080
+            port = int(port_match.group(1)) if port_match else None
             
             # Extract name
             name_match = re.search(r'name:\s*([^\s\n]+)', kubernetes_manifests)
-            name = name_match.group(1) if name_match else 'app'
+            name = name_match.group(1) if name_match else None
+            
+            # If extraction failed, parse Dockerfile directly
+            if not image or not port:
+                dockerfile_values = extract_from_dockerfile(dockerfile_content)
+                image = image or dockerfile_values.get('image', 'my-app:latest')
+                port = port or dockerfile_values.get('port', 8080)
+                name = name or dockerfile_values.get('name', 'app')
             
             return {
                 'image': image,
                 'port': port,
                 'name': name
             }
-    except:
-        pass
+    except Exception as e:
+        logger.warning(f"Failed to extract from Kubernetes manifests: {e}")
+    
+    # Final fallback: parse Dockerfile directly
+    if dockerfile_content:
+        return extract_from_dockerfile(dockerfile_content)
     
     return {'image': 'my-app:latest', 'port': 8080, 'name': 'app'}
+
+def extract_from_dockerfile(dockerfile_content):
+    """Extract values directly from Dockerfile content"""
+    if not dockerfile_content:
+        return {'image': 'my-app:latest', 'port': 8080, 'name': 'app'}
+    
+    import re
+    
+    # Extract base image from FROM instruction
+    from_match = re.search(r'FROM\s+([^\s\n]+)', dockerfile_content, re.IGNORECASE)
+    image = from_match.group(1) if from_match else 'my-app:latest'
+    
+    # Extract port from EXPOSE instruction
+    expose_match = re.search(r'EXPOSE\s+(\d+)', dockerfile_content, re.IGNORECASE)
+    port = int(expose_match.group(1)) if expose_match else 8080
+    
+    # Generate app name from image
+    name = image.split(':')[0].split('/')[-1] if image != 'my-app:latest' else 'app'
+    
+    return {
+        'image': image,
+        'port': port,
+        'name': name
+    }
 
 def generate_eks_cloudformation_template(initial_requirement, dockerfile_path):
     try:
@@ -334,7 +374,7 @@ def generate_eks_cloudformation_template(initial_requirement, dockerfile_path):
             kubernetes_manifests_response = kubernetes_manifest_chain.invoke({"dockerfile_content": dockerfile_content})["response"]
             
             # Extract values from Kubernetes manifests for CloudFormation
-            kubernetes_values = extract_kubernetes_values(kubernetes_manifests_response)
+            kubernetes_values = extract_kubernetes_values(kubernetes_manifests_response, dockerfile_content)
             st.info(f"Extracted values: {kubernetes_values}")
             
             # Enhanced manifests with extracted values
@@ -357,7 +397,7 @@ def generate_eks_cloudformation_template(initial_requirement, dockerfile_path):
             kubernetes_manifests_response = kubernetes_manifest_chain.invoke({"dockerfile_content": dockerfile_content})["response"]
             
             # Extract values from Kubernetes manifests for CloudFormation
-            kubernetes_values = extract_kubernetes_values(kubernetes_manifests_response)
+            kubernetes_values = extract_kubernetes_values(kubernetes_manifests_response, dockerfile_content)
             st.info(f"Extracted values: {kubernetes_values}")
             
             # Enhanced manifests with extracted values
