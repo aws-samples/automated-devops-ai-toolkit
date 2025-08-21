@@ -20,6 +20,17 @@ fix_dockerfile_build_issue_prompt = """
     6. Start directly with FROM instruction
     7. Each line must be a valid Dockerfile instruction
     
+    COMMON FIXES FOR PACKAGE MANAGER ERRORS:
+    - If error contains "apt-get" and base image is Alpine: Replace with "apk update && apk add"
+    - If error contains "yum" and base image is Debian/Ubuntu: Replace with "apt-get update && apt-get install -y"
+    - If error contains "apk" and base image is not Alpine: Replace with appropriate package manager
+    - For Java projects: Ensure Maven is installed with correct package manager for the base image
+    
+    PACKAGE MANAGER BY BASE IMAGE:
+    - openjdk:*-slim, debian, ubuntu → apt-get update && apt-get install -y
+    - openjdk:*-alpine, alpine → apk update && apk add
+    - amazonlinux, centos, rhel → yum update -y && yum install -y
+    
     Fix the error and return only the corrected Dockerfile content.
 """
 
@@ -46,7 +57,10 @@ docker_file_generation_prompt_template = """
         Dockerfile content information: {docker_file_content_info}
         
         1. Always prefer to use base image of the dockerfile based on project type specified
-        2. After base image information, Add instructions with RUN to update and upgrade image to fix any security patches or bugs. Like yum update -y or apt update -y, etc..
+        2. CRITICAL: Match package manager to base image OS:
+           - For Debian/Ubuntu-based images (debian, ubuntu, python, node, openjdk with -slim): use "apt-get update && apt-get install -y"
+           - For RHEL/CentOS-based images (centos, rhel, amazonlinux): use "yum update -y && yum install -y"
+           - For Alpine-based images (alpine, node:alpine, openjdk:alpine): use "apk update && apk add"
         3. Don't use wrapper binaries for project that need compilation like use mvn instead of mvnw. Also make sure you use only official binaries instead of binaries that are listed from third party services.
         4. Try to identify the list of all the dependencies required for the project along with their versions from the Dependency Object Content details provided in the prompt.
         5. Try to add instructions to clean any files that are not required for running the application. For example for building a go binary all go modules are needed. But after the binary was built, there is no need to keep the dependency files. But on the other hand, if it is a python project all the dependencies should be present as it uses those files during runtime.
@@ -66,6 +80,12 @@ docker_file_generation_prompt_template = """
         19. For Java projects, always use JDK base images (like openjdk:11-jdk-slim) not JRE images, as compilation requires JDK
         20. For Java projects, use multi-stage builds: build stage with JDK for compilation, runtime stage with JRE for execution
         21. For Java projects, copy the specific JAR file name from target directory, not wildcards like target/*.jar
+        22. CRITICAL: For Java projects with Maven, ensure Maven is available in the base image or install it with correct package manager
+        
+        EXAMPLES OF CORRECT PACKAGE MANAGER USAGE:
+        - FROM openjdk:11-jdk-slim → RUN apt-get update && apt-get install -y maven
+        - FROM openjdk:11-jdk-alpine → RUN apk update && apk add maven
+        - FROM amazonlinux:2 → RUN yum update -y && yum install -y maven
         
         Also make sure that output should be simple and crystal without any detailed explanation about the instructions in the response. 
          
