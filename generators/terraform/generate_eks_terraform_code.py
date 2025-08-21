@@ -126,8 +126,19 @@ terraform_generation_fargate_template = '''
     9. DO NOT use deprecated template provider or template_file data source
     10. Use templatefile() function or locals instead of template_file
     11. Only use aws and kubernetes providers - no template, null, or other deprecated providers
+    12. CRITICAL: DO NOT use variables - embed all values directly in resources
+    13. CRITICAL: DO NOT prompt for user input - generate complete standalone Terraform code
+    14. CRITICAL: DO NOT use heredoc syntax or templatefile() for Kubernetes manifests
+    15. CRITICAL: Use jsonencode() or direct HCL syntax for all configurations
 
     The output should be in code format and enclosed in triple backticks with the 'hcl' marker.
+    
+    MANDATORY OUTPUT FORMAT:
+    ```hcl
+    [Your Terraform code here]
+    ```
+    
+    DO NOT return plain text without code block markers.
 '''
 
 terraform_generation_ec2_template = '''
@@ -173,8 +184,19 @@ terraform_generation_ec2_template = '''
     10. Use templatefile() function or locals instead of template_file
     11. Only use aws and kubernetes providers - no template, null, or other deprecated providers
     8. Avoid hardcoded values and cyclic dependencies
+    9. CRITICAL: DO NOT use variables - embed all values directly in resources
+    10. CRITICAL: DO NOT prompt for user input - generate complete standalone Terraform code
+    11. CRITICAL: DO NOT use heredoc syntax or templatefile() for configurations
+    12. CRITICAL: Use jsonencode() or direct HCL syntax for all configurations
 
     The output should be in code format and enclosed in triple backticks with the 'hcl' marker.
+    
+    MANDATORY OUTPUT FORMAT:
+    ```hcl
+    [Your Terraform code here]
+    ```
+    
+    DO NOT return plain text without code block markers.
 '''
 
 # Create ChatPromptTemplate objects
@@ -353,6 +375,11 @@ def extract_terraform_code_from_output(output):
         terraform_code_blocks = re.findall(pattern, output, re.DOTALL)
         if terraform_code_blocks:
             return "\n\n".join(terraform_code_blocks).strip()
+    
+    # If no code blocks found, try to detect if it's raw Terraform code
+    if 'resource "' in output or 'data "' in output or 'provider "' in output:
+        logging.warning("No code block markers found, but detected Terraform syntax - using raw output")
+        return output.strip()
     
     logging.warning("No code block markers found, checking for generated file")
     
