@@ -143,13 +143,35 @@ terraform_generation_fargate_template = '''
     9. DO NOT use deprecated template provider or template_file data source
     10. Use templatefile() function or locals for user data instead of template_file
     11. Only use aws provider - no template, null, or other deprecated providers
-    12. DO NOT use variables - embed all values directly in resources
-    13. DO NOT prompt for user input - generate complete standalone Terraform code
-    14. Use extracted container values directly in container_definitions, not as variables
-    9. User should be able to run the code without being prompted for any additional inputs.
-    10. Do not refer to undeclared variables or resources in the code.
-    11. Include data sources for availability zones: data "aws_availability_zones" "available" {{}}
-    12. Use the provided container_definitions HCL directly without modification.
+    12. CRITICAL: DO NOT use variables - embed all values directly in resources
+    13. CRITICAL: DO NOT prompt for user input - generate complete standalone Terraform code
+    14. CRITICAL: Use extracted container values directly in container_definitions, not as variables
+    15. CRITICAL: In aws_ecs_task_definition resource, use: container_definitions = jsonencode([...])
+    16. CRITICAL: DO NOT use: container_definitions = var.container_definitions
+    17. User should be able to run the code without being prompted for any additional inputs.
+    18. Do not refer to undeclared variables or resources in the code.
+    19. Include data sources for availability zones: data "aws_availability_zones" "available" {{}}
+    20. Use the provided container_definitions HCL directly without modification.
+
+    EXAMPLE CORRECT USAGE:
+    resource "aws_ecs_task_definition" "task" {{
+      family                   = "my-app-task"
+      container_definitions    = jsonencode([
+        {{
+          name      = "my-app"
+          image     = "nginx:latest"
+          cpu       = 256
+          memory    = 512
+          essential = true
+          portMappings = [
+            {{
+              containerPort = 80
+              hostPort      = 80
+            }}
+          ]
+        }}
+      ])
+    }}
 
     The output should be in code format and enclosed in triple backticks with the 'hcl' marker.
 '''
@@ -180,12 +202,43 @@ terraform_generation_ec2_autoscaling_template = '''
     1. Do not use any hardcoded resource IDs in the code.
     2. Include required data sources like aws_availability_zones and aws_caller_identity.
     3. Always generate end-to-end code using Terraform.
-    4. Use the provided HCL container_definitions directly in aws_ecs_task_definition resource.
+    4. CRITICAL: Use the provided HCL container_definitions directly in aws_ecs_task_definition resource.
     5. Avoid cyclic dependencies in the code.
     6. Include all necessary networking components such as custom VPC, subnets, IGW, NATGW, and security groups.
     7. Ensure to create IAM roles required for the ECS tasks and task execution, including policies for necessary permissions.
     8. If no load balancer is mentioned, create ECS Service without load_balancer configuration.
     9. Include Auto Scaling Group (ASG) configuration for the EC2 instances.
+    10. DO NOT use deprecated template provider or template_file data source
+    11. Use templatefile() function or locals for user data instead of template_file
+    12. Only use aws provider - no template, null, or other deprecated providers
+    13. CRITICAL: DO NOT use variables - embed all values directly in resources
+    14. CRITICAL: DO NOT prompt for user input - generate complete standalone Terraform code
+    15. CRITICAL: Use extracted container values directly in container_definitions, not as variables
+    16. CRITICAL: In aws_ecs_task_definition resource, use: container_definitions = jsonencode([...])
+    17. CRITICAL: DO NOT use: container_definitions = var.container_definitions
+    18. Do not refer to undeclared variables or resources in the code.
+    19. Include data sources for availability zones: data "aws_availability_zones" "available" {{}}
+    20. Use the provided container_definitions HCL directly without modification.
+
+    EXAMPLE CORRECT USAGE:
+    resource "aws_ecs_task_definition" "task" {{
+      family                   = "my-app-task"
+      container_definitions    = jsonencode([
+        {{
+          name      = "my-app"
+          image     = "nginx:latest"
+          cpu       = 256
+          memory    = 512
+          essential = true
+          portMappings = [
+            {{
+              containerPort = 80
+              hostPort      = 80
+            }}
+          ]
+        }}
+      ])
+    }}
     10. User should be able to run the code without being prompted for any additional inputs.
     11. DO NOT use deprecated template provider or template_file data source
     12. Use templatefile() function or locals for user data instead of template_file
