@@ -146,13 +146,18 @@ def identify_project_details(git_url: str, directory: str, token: Optional[str] 
 
     Files: {files}
 
-    Identification rules:
+    Identification rules (priority order):
     - If pom.xml exists: project_type="java", dependency_object=path to pom.xml
     - If build.gradle exists: project_type="java", dependency_object=path to build.gradle  
-    - If requirements.txt exists: project_type="python", dependency_object=path to requirements.txt
-    - If package.json exists: project_type="node", dependency_object=path to package.json
     - If go.mod exists: project_type="go", dependency_object=path to go.mod
     - If Cargo.toml exists: project_type="rust", dependency_object=path to Cargo.toml
+    - If package.json exists: project_type="node", dependency_object=path to package.json
+    - If requirements.txt exists: project_type="python", dependency_object=path to requirements.txt
+    - If setup.py exists: project_type="python", dependency_object=path to setup.py
+    - If pyproject.toml exists: project_type="python", dependency_object=path to pyproject.toml
+    - If Dockerfile exists but no other files: project_type="docker", dependency_object=path to Dockerfile
+    - If .csproj exists: project_type="dotnet", dependency_object=path to .csproj file
+    - If composer.json exists: project_type="php", dependency_object=path to composer.json
 
     Return only this JSON format:
     {{"project_type":"<language>","dependency_object":"<full_path_to_dependency_file>"}}

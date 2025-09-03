@@ -31,24 +31,64 @@ fix_dockerfile_build_issue_prompt = """
     - openjdk:*-alpine, alpine → apk update && apk add
     - amazonlinux, centos, rhel → yum update -y && yum install -y
     
+    LANGUAGE-SPECIFIC ARTIFACT FIXES:
+    - JAVA: If JAR not found, extract from pom.xml/build.gradle:
+      * Maven: {artifactId}-{version}.jar (e.g., sample-0.0.1-SNAPSHOT.jar)
+      * Gradle: Extract from build.gradle archiveBaseName and version
+    - GO: If binary not found, use module name from go.mod:
+      * Extract module name: "module github.com/user/myapp" → binary: myapp
+      * Use: RUN go build -o /app/myapp ./cmd/main.go
+    - NODE.JS: Extract app name from package.json:
+      * Use "name" field from package.json for app identification
+      * Entry point from "main" or "scripts.start"
+    - PYTHON: Extract app name from setup.py or pyproject.toml if exists:
+      * Use requirements.txt for dependencies
+      * Entry point typically app.py or main.py
+    - RUST: Extract from Cargo.toml:
+      * Use [package] name field for binary name
+      * Binary location: target/release/{name}
+    
     Fix the error and return only the corrected Dockerfile content.
 """
 
 get_info_for_docker_file_prompt = """
-    You are a developer AI assistant who has knowledge in all programming languages. Can you help in identifying the contents required for a docker file with the following information. Always use latest images for base image like `FROM python:latest`
+    You are a developer AI assistant who has knowledge in all programming languages. Extract build information from dependency files.
     project_type: {project_type}
     project_dependency_object_content: {dependency_object_content}
     project_files: {files}
     
-    output should be simple and crystal clear without any explanation about it like 
-
-        "base_image": "python:latest",
-        "run_instructions": "yum update -y",
-        "copy_instructions": "COPY . /app/",
-        "install_instructions": "RUN pip install -r requirements.txt",
+    LANGUAGE-SPECIFIC EXTRACTION RULES:
+    
+    JAVA (pom.xml/build.gradle):
+    - Extract artifactId and version from pom.xml: {artifactId}-{version}.jar
+    - For Gradle: extract archiveBaseName and version from build.gradle
+    
+    GO (go.mod):
+    - Extract module name: "module github.com/user/myapp" → binary: "myapp"
+    - Main file typically in cmd/ or root directory
+    
+    NODE.JS (package.json):
+    - Extract "name" field for app name
+    - Extract "main" field for entry point (default: index.js)
+    - Extract "scripts.start" for run command
+    
+    PYTHON (requirements.txt/setup.py):
+    - App name from setup.py name field or directory name
+    - Entry point typically app.py, main.py, or from setup.py
+    
+    RUST (Cargo.toml):
+    - Extract [package] name for binary name
+    - Binary path: target/release/{name}
+    
+    Output format:
+    {
+        "base_image": "language:latest",
+        "app_name": "extracted-app-name",
+        "binary_name": "extracted-binary-name",
+        "entry_point": "extracted-entry-point",
         "expose_port": "EXPOSE 8080",
-        "run_as_user": "USER app",
-        "entry_point": "ENTRYPOINT [\"python\"]"
+        "build_artifact": "path/to/artifact"
+    }
 """
 
 docker_file_generation_prompt_template = """
@@ -79,8 +119,33 @@ docker_file_generation_prompt_template = """
         18. In CMD or entry point specify the entry point paths correct instead of using wildcards by evaluating the dependency objects configuration.
         19. For Java projects, always use JDK base images (like openjdk:11-jdk-slim) not JRE images, as compilation requires JDK
         20. For Java projects, use multi-stage builds: build stage with JDK for compilation, runtime stage with JRE for execution
-        21. For Java projects, copy the specific JAR file name from target directory, not wildcards like target/*.jar
-        22. CRITICAL: For Java projects with Maven, ensure Maven is available in the base image or install it with correct package manager
+        21. CRITICAL LANGUAGE-SPECIFIC ARTIFACT HANDLING:
+            
+            JAVA:
+            - Maven: Extract artifactId and version from pom.xml → {artifactId}-{version}.jar
+            - Gradle: Extract from build.gradle → {archiveBaseName}-{version}.jar
+            - Use exact JAR name in COPY target/{actual-jar-name}.jar
+            
+            GO:
+            - Extract module name from go.mod: "module github.com/user/myapp" → binary: myapp
+            - Use: RUN go build -o /app/{binary-name} ./cmd/main.go or RUN go build -o /app/{binary-name}
+            - Entry point: ENTRYPOINT ["/app/{binary-name}"]
+            
+            NODE.JS:
+            - Extract app name from package.json "name" field
+            - Entry point from "main" field or "scripts.start"
+            - Use: ENTRYPOINT ["node", "{main-file}"]
+            
+            PYTHON:
+            - Entry point typically app.py, main.py, or from setup.py
+            - Use: ENTRYPOINT ["python", "{entry-file}"]
+            
+            RUST:
+            - Extract binary name from Cargo.toml [package] name
+            - Binary path: target/release/{name}
+            - Use: COPY target/release/{binary-name} /app/
+            
+        22. DO NOT use hardcoded names - extract actual names from dependency files
         
         EXAMPLES OF CORRECT PACKAGE MANAGER USAGE:
         - FROM openjdk:11-jdk-slim → RUN apt-get update && apt-get install -y maven

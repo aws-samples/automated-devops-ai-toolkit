@@ -92,10 +92,22 @@ def parse_dockerfile_details(dockerfile_content):
             runtime_version = f"python: {image_version}"
             install_commands = "      - apt-get update\n      - apt-get install -y python3-pip"
             build_commands = "      - echo \"Building Python project...\"\n      - pip3 install -r requirements.txt\n      - python3 app.py"
-        elif image_name.startswith('golang'):
+        elif image_name.startswith('golang') or 'golang' in image_name:
             runtime_version = f"golang: {image_version}"
             install_commands = "      - apt-get update\n      - apt-get install -y golang"
-            build_commands = "      - echo \"Building Go project...\"\n      - go build main.go"
+            build_commands = "      - echo \"Building Go project...\"\n      - go mod download\n      - go build -o app ."
+        elif image_name.startswith('rust') or 'rust' in image_name:
+            runtime_version = f"rust: {image_version}"
+            install_commands = "      - apt-get update\n      - apt-get install -y build-essential"
+            build_commands = "      - echo \"Building Rust project...\"\n      - cargo build --release"
+        elif image_name.startswith('php'):
+            runtime_version = f"php: {image_version}"
+            install_commands = "      - apt-get update\n      - apt-get install -y composer"
+            build_commands = "      - echo \"Installing PHP dependencies...\"\n      - composer install"
+        elif image_name.startswith('dotnet') or 'dotnet' in image_name:
+            runtime_version = f"dotnet: {image_version}"
+            install_commands = "      - apt-get update"
+            build_commands = "      - echo \"Building .NET project...\"\n      - dotnet restore\n      - dotnet build"
         else:
             runtime_version = ""
             install_commands = "      - echo \"No specific install commands for this image type\""
