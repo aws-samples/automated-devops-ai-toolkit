@@ -33,7 +33,7 @@ fix_dockerfile_build_issue_prompt = """
     
     LANGUAGE-SPECIFIC ARTIFACT FIXES:
     - JAVA: If JAR not found, extract from pom.xml/build.gradle:
-      * Maven: {artifactId}-{version}.jar (e.g., sample-0.0.1-SNAPSHOT.jar)
+      * Maven: artifactId-version.jar (e.g., sample-0.0.1-SNAPSHOT.jar)
       * Gradle: Extract from build.gradle archiveBaseName and version
     - GO: If binary not found, use module name from go.mod:
       * Extract module name: "module github.com/user/myapp" → binary: myapp
@@ -46,7 +46,7 @@ fix_dockerfile_build_issue_prompt = """
       * Entry point typically app.py or main.py
     - RUST: Extract from Cargo.toml:
       * Use [package] name field for binary name
-      * Binary location: target/release/{name}
+      * Binary location: target/release/binary-name
     
     Fix the error and return only the corrected Dockerfile content.
 """
@@ -55,12 +55,12 @@ get_info_for_docker_file_prompt = """
     You are a developer AI assistant who has knowledge in all programming languages. Extract build information from dependency files.
     project_type: {project_type}
     project_dependency_object_content: {dependency_object_content}
-    project_files: {files}
+    project_files: {project_files_list}
     
     LANGUAGE-SPECIFIC EXTRACTION RULES:
     
     JAVA (pom.xml/build.gradle):
-    - Extract artifactId and version from pom.xml: {artifactId}-{version}.jar
+    - Extract artifactId and version from pom.xml: artifactId-version.jar
     - For Gradle: extract archiveBaseName and version from build.gradle
     
     GO (go.mod):
@@ -78,17 +78,15 @@ get_info_for_docker_file_prompt = """
     
     RUST (Cargo.toml):
     - Extract [package] name for binary name
-    - Binary path: target/release/{name}
+    - Binary path: target/release/name
     
-    Output format:
-    {
-        "base_image": "language:latest",
-        "app_name": "extracted-app-name",
-        "binary_name": "extracted-binary-name",
-        "entry_point": "extracted-entry-point",
-        "expose_port": "EXPOSE 8080",
-        "build_artifact": "path/to/artifact"
-    }
+    Output format (simple key-value pairs):
+    base_image: language:latest
+    app_name: extracted-app-name
+    binary_name: extracted-binary-name
+    entry_point: extracted-entry-point
+    expose_port: EXPOSE 8080
+    build_artifact: path/to/artifact
 """
 
 docker_file_generation_prompt_template = """
@@ -122,28 +120,28 @@ docker_file_generation_prompt_template = """
         21. CRITICAL LANGUAGE-SPECIFIC ARTIFACT HANDLING:
             
             JAVA:
-            - Maven: Extract artifactId and version from pom.xml → {artifactId}-{version}.jar
-            - Gradle: Extract from build.gradle → {archiveBaseName}-{version}.jar
-            - Use exact JAR name in COPY target/{actual-jar-name}.jar
+            - Maven: Extract artifactId and version from pom.xml → artifactId-version.jar
+            - Gradle: Extract from build.gradle → archiveBaseName-version.jar
+            - Use exact JAR name in COPY target/actual-jar-name.jar
             
             GO:
             - Extract module name from go.mod: "module github.com/user/myapp" → binary: myapp
-            - Use: RUN go build -o /app/{binary-name} ./cmd/main.go or RUN go build -o /app/{binary-name}
-            - Entry point: ENTRYPOINT ["/app/{binary-name}"]
+            - Use: RUN go build -o /app/binary-name ./cmd/main.go or RUN go build -o /app/binary-name
+            - Entry point: ENTRYPOINT ["/app/binary-name"]
             
             NODE.JS:
             - Extract app name from package.json "name" field
             - Entry point from "main" field or "scripts.start"
-            - Use: ENTRYPOINT ["node", "{main-file}"]
+            - Use: ENTRYPOINT ["node", "main-file"]
             
             PYTHON:
             - Entry point typically app.py, main.py, or from setup.py
-            - Use: ENTRYPOINT ["python", "{entry-file}"]
+            - Use: ENTRYPOINT ["python", "entry-file"]
             
             RUST:
             - Extract binary name from Cargo.toml [package] name
-            - Binary path: target/release/{name}
-            - Use: COPY target/release/{binary-name} /app/
+            - Binary path: target/release/name
+            - Use: COPY target/release/binary-name /app/
             
         22. DO NOT use hardcoded names - extract actual names from dependency files
         
@@ -261,13 +259,13 @@ def generate_docker_file(project_type: str, project_dependency_object: str, proj
             raise ValueError("No appropriate dependency listing object present. Please create an appropriate dependency object like pom.xml, requirements.txt, etc.")
         
         model = get_model()
-        dockerfile_prompt_info_prompt = PromptTemplate(template=get_info_for_docker_file_prompt, input_variables=["project_type", "dependency_object_content", "files"])
+        dockerfile_prompt_info_prompt = PromptTemplate(template=get_info_for_docker_file_prompt, input_variables=["project_type", "dependency_object_content", "project_files_list"])
         llm_chain = dockerfile_prompt_info_prompt | model | {"str": StrOutputParser()}
         
         logger.info("Dependency object content:")
         logger.debug(dependency_object_content)
         
-        docker_file_content_info = llm_chain.invoke({"project_type": project_type, "dependency_object_content": dependency_object_content, "files": project_files_list})
+        docker_file_content_info = llm_chain.invoke({"project_type": project_type, "dependency_object_content": dependency_object_content, "project_files_list": project_files_list})
         logger.info("==============================")
         logger.info(docker_file_content_info)
         logger.info("==============================")
